@@ -156,7 +156,7 @@ def crawPageProduct(url):
 
 def writeFile(data, suffix):
     df = DataFrame(data, columns=["Title","Link_Image1","Link_Image2","Link_Image3","Link_Image4","SKU","Link","mmolazi_type","tags","category"])
-    export_csv = df.to_csv('newmoon_import_template_'+ str(suffix )+ '.csv',index = None, header=True)
+    df.to_csv('newmoon_import_template_'+ str(suffix )+ '.csv',index = None, header=True)
 
 def readFile(path):
     f = open(path, 'r')
