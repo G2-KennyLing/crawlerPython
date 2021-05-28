@@ -2,3 +2,6 @@ beautifulsoup4==4.9.1
 requests==2.23.0
 soupsieve==2.0.1
 pandas==1.2.4
+asyncio=3.4.3
+aiohttp=3.7.4
+cchardet=2.1.7

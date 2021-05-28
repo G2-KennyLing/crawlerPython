@@ -3,65 +3,86 @@ import requests
 import time
 import json
 import random
+import asyncio
+import aiohttp
+import nest_asyncio
 from pandas import DataFrame
 
-def crawPageSearch(url):
+async def crawPageSearch(url):
     data = []
-    page = '1'
     urlInput = url + '&page='
     baseUrl = url.split('/search')[0] 
     if len(url) == 0 : 
         return print(" Link is not found")
-    pagingRes = requests.get(url, headers={'User-Agent': getUserAgent()}, proxies={'http':getProxy()})
-    soupPage = BeautifulSoup(pagingRes.content, "html.parser")
-    if type(soupPage.find('div',class_="pagination__nav")) == str : 
-        paging = soupPage.find('div',class_="pagination__nav").findChildren('a', recursive=False)[2].text
-        page = paging
-    numPage = int(page)
-    for i in range(1,numPage+1):
-        response = requests.get(urlInput + str(i), headers={'User-Agent': getUserAgent()}, proxies={'http':getProxy()})
-        soup = BeautifulSoup(response.content, "html.parser")
-        productList = soup.find('div', class_='product-list')
-        for product in productList:
-            Title = product.find("a", class_="product-item__title").text
-            Link = baseUrl + product.find("a", class_="product-item__title").attrs["href"]
-            Link = Link[ :Link.index("?")]
-            obj = {
-                    'Title' :Title,
-                    'Link_Image1': '',
-                    'Link_Image2': '',
-                    'Link_Image3': '',
-                    'Link_Image4': '',
-                    'SKU': '',
-                    'Link':Link,
-                    'mmolazi_type': '',
-                    'tags': '',
-                    'category': ''
-                }
-            productDetailRes = requests.get(Link, headers={'User-Agent': getUserAgent()}, proxies={'http':getProxy()})
-            soupPD = BeautifulSoup(productDetailRes.content, "html.parser")
-            Link_Image1 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[0].attrs["href"]
-            if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 1:
-                Link_Image2 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[1].attrs["href"]
-                if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 2:
-                    Link_Image3 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[2].attrs["href"]
-                    if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 3:
-                        Link_Image4 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[3].attrs["href"]
+
+    async def getPage(url):
+        async with aiohttp.ClientSession(headers={"user-agent": getUserAgent()}) as session:
+            async with session.get(url) as response:
+                html = await response.text()
+                soupPage = BeautifulSoup(html, "html.parser")
+                if type(soupPage.find('div',class_="pagination__nav")): 
+                    paging = soupPage.find('div',class_="pagination__nav").findChildren('a', recursive=False)[2].text
+                    return int(paging)
+        return 1
+    numPage = await getPage(url)
+    tasks = []
+    async def fetchheaders(url, session):
+        async with session.get(url) as response:
+            await response.read()
+            html = await response.text()
+            soup = BeautifulSoup(html, "html.parser")
+            productList = soup.find('div', class_='product-list')
+            for product in productList:
+                Title = product.find("a", class_="product-item__title").text
+                Link = baseUrl + product.find("a", class_="product-item__title").attrs["href"]
+                Link = Link[ :Link.index("?")]
+                obj = {
+                        'Title' :Title,
+                        'Link_Image1': '',
+                        'Link_Image2': '',
+                        'Link_Image3': '',
+                        'Link_Image4': '',
+                        'SKU': '',
+                        'Link':Link,
+                        'mmolazi_type': '',
+                        'tags': '',
+                        'category': ''
+                    }
+                productDetailRes = requests.get(Link, headers={'User-Agent': getUserAgent()}, proxies={'http':getProxy()})
+                soupPD = BeautifulSoup(productDetailRes.content, "html.parser")
+                Link_Image1 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[0].attrs["href"]
+                if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 1:
+                    Link_Image2 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[1].attrs["href"]
+                    if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 2:
+                        Link_Image3 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[2].attrs["href"]
+                        if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 3:
+                            Link_Image4 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[3].attrs["href"]
+                            obj['Link_Image1'] = Link_Image1
+                            obj['Link_Image2'] = Link_Image2
+                            obj['Link_Image3'] = Link_Image3
+                            obj['Link_Image4'] = Link_Image4
+                        else : 
+                            obj['Link_Image1'] = Link_Image1
+                            obj['Link_Image2'] = Link_Image2
+                            obj['Link_Image3'] = Link_Image3
+                    else :
                         obj['Link_Image1'] = Link_Image1
                         obj['Link_Image2'] = Link_Image2
-                        obj['Link_Image3'] = Link_Image3
-                        obj['Link_Image4'] = Link_Image4
-                    else : 
-                        obj['Link_Image1'] = Link_Image1
-                        obj['Link_Image2'] = Link_Image2
-                        obj['Link_Image3'] = Link_Image3
                 else :
                     obj['Link_Image1'] = Link_Image1
-                    obj['Link_Image2'] = Link_Image2
-            else :
-                obj['Link_Image1'] = Link_Image1
-            data.append(obj)
-        print("crawling page: "+ urlInput+str(i))
+                data.append(obj)
+
+    async def run():
+        async with aiohttp.ClientSession(headers={"user-agent": getUserAgent()}) as session:
+            for i in range(1,numPage+1):
+                task = asyncio.ensure_future(fetchheaders(urlInput + str(i),session))
+                print("crawling page: "+ urlInput+str(i))
+                tasks.append(task)
+            await asyncio.gather(*tasks)
+    loop = asyncio.get_event_loop()
+    nest_asyncio.apply(loop)
+    future = asyncio.ensure_future(run())
+    loop.run_until_complete(future)
     print("Have " + str(len(data)) + "products crawled from: "+  url)
     return data
 
@@ -188,7 +209,7 @@ if __name__ == "__main__":
                 dataAll += dataColl
                 break
             elif arr[i].split('?')[0] == 'search' : 
-                dataSearch = crawPageSearch(url)
+                dataSearch = asyncio.run(crawPageSearch(url)) 
                 dataAll += dataSearch
                 break
     writeFile(dataAll, suffix)
