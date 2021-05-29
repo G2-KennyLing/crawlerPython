@@ -27,7 +27,7 @@ async def crawPageSearch(url):
     numPage = await getPage(url)
     tasks = []
     async def fetchheaders(url, session):
-        async with session.get(url) as response:
+        async with session.get(url, proxy = getProxy()) as response:
             await response.read()
             html = await response.text()
             soup = BeautifulSoup(html, "html.parser")
@@ -48,29 +48,31 @@ async def crawPageSearch(url):
                         'tags': '',
                         'category': ''
                     }
-                productDetailRes = requests.get(Link, headers={'User-Agent': getUserAgent()}, proxies={'http':getProxy()})
-                soupPD = BeautifulSoup(productDetailRes.content, "html.parser")
-                Link_Image1 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[0].attrs["href"]
-                if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 1:
-                    Link_Image2 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[1].attrs["href"]
-                    if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 2:
-                        Link_Image3 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[2].attrs["href"]
-                        if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 3:
-                            Link_Image4 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[3].attrs["href"]
+                async with session.get(Link, proxy= getProxy()) as response:
+                    await response.read()
+                    html = await response.text()
+                    soupPD = BeautifulSoup(html, "html.parser")
+                    Link_Image1 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[0].attrs["href"]
+                    if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 1:
+                        Link_Image2 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[1].attrs["href"]
+                        if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 2:
+                            Link_Image3 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[2].attrs["href"]
+                            if len(list(soupPD.find('div', class_='product-gallery__thumbnail-list').children)) > 3:
+                                Link_Image4 = 'http:' + soupPD.find('div', class_='product-gallery__thumbnail-list').findChildren("a", recursive=False)[3].attrs["href"]
+                                obj['Link_Image1'] = Link_Image1
+                                obj['Link_Image2'] = Link_Image2
+                                obj['Link_Image3'] = Link_Image3
+                                obj['Link_Image4'] = Link_Image4
+                            else : 
+                                obj['Link_Image1'] = Link_Image1
+                                obj['Link_Image2'] = Link_Image2
+                                obj['Link_Image3'] = Link_Image3
+                        else :
                             obj['Link_Image1'] = Link_Image1
                             obj['Link_Image2'] = Link_Image2
-                            obj['Link_Image3'] = Link_Image3
-                            obj['Link_Image4'] = Link_Image4
-                        else : 
-                            obj['Link_Image1'] = Link_Image1
-                            obj['Link_Image2'] = Link_Image2
-                            obj['Link_Image3'] = Link_Image3
                     else :
                         obj['Link_Image1'] = Link_Image1
-                        obj['Link_Image2'] = Link_Image2
-                else :
-                    obj['Link_Image1'] = Link_Image1
-                data.append(obj)
+                    data.append(obj)
 
     async def run():
         async with aiohttp.ClientSession(headers={"user-agent": getUserAgent()}) as session:
